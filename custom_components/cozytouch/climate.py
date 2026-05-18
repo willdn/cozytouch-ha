@@ -18,9 +18,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import CozytouchConfigEntry
 from .const import (
     CAP_COOLING_TARGET,
+    CAP_FAN_SPEED,
     CAP_HEATING_TARGET,
     CAP_HVAC_MODE,
+    CAP_QUIET_MODE,
     DOMAIN,
+    FAN_SPEED_MAP,
+    FAN_SPEED_REVERSE,
+    PRESET_NONE,
+    PRESET_QUIET,
     SYSTEM_MODE_MAP,
     SYSTEM_MODE_REVERSE,
 )
@@ -44,7 +50,13 @@ async def async_setup_entry(
 class CozytouchClimate(CoordinatorEntity[CozytouchCoordinator], ClimateEntity):
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL, HVACMode.AUTO, HVACMode.FAN_ONLY, HVACMode.DRY]
-    _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+    _attr_fan_modes = ["low", "medium", "high", "auto"]
+    _attr_preset_modes = [PRESET_NONE, PRESET_QUIET]
+    _attr_supported_features = (
+        ClimateEntityFeature.TARGET_TEMPERATURE
+        | ClimateEntityFeature.FAN_MODE
+        | ClimateEntityFeature.PRESET_MODE
+    )
     _attr_has_entity_name = True
     _attr_name = None
 
@@ -109,12 +121,36 @@ class CozytouchClimate(CoordinatorEntity[CozytouchCoordinator], ClimateEntity):
             return HVACAction.HEATING if self.hvac_mode != HVACMode.COOL else HVACAction.COOLING
         return HVACAction.IDLE
 
+    @property
+    def fan_mode(self) -> str | None:
+        raw = self._zone.get("fan_speed")
+        if raw is None:
+            return None
+        return FAN_SPEED_MAP.get(raw, str(raw))
+
+    @property
+    def preset_mode(self) -> str:
+        return PRESET_QUIET if self._zone.get("quiet_mode") == 1 else PRESET_NONE
+
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         raw = SYSTEM_MODE_REVERSE.get(hvac_mode)
         if raw is None:
             _LOGGER.warning("Unsupported hvac_mode: %s", hvac_mode)
             return
         await self.coordinator.api.write_capability(self._device_id, CAP_HVAC_MODE, raw)
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_fan_mode(self, fan_mode: str) -> None:
+        raw = FAN_SPEED_REVERSE.get(fan_mode)
+        if raw is None:
+            _LOGGER.warning("Unsupported fan_mode: %s", fan_mode)
+            return
+        await self.coordinator.api.write_capability(self._device_id, CAP_FAN_SPEED, str(raw))
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_preset_mode(self, preset_mode: str) -> None:
+        value = "1" if preset_mode == PRESET_QUIET else "0"
+        await self.coordinator.api.write_capability(self._device_id, CAP_QUIET_MODE, value)
         await self.coordinator.async_request_refresh()
 
     async def async_set_temperature(self, **kwargs: Any) -> None:

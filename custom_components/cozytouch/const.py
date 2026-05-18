@@ -25,6 +25,8 @@ CAP_SYSTEM_MODE          = 184  # scheduling/programme mode (basic/prog/auto) �
 CAP_AVAILABLE_MODES      = 217
 CAP_WIFI_CONNECTED       = 218
 CAP_HVAC_MODE_SUPPORTED  = 100022  # HVAC modes the device supports
+CAP_FAN_SPEED            = 100801  # VENTILATION_CURRENT_SPEED_MODE
+CAP_QUIET_MODE           = 100802  # VENTILATION_QUIET_MODE
 
 # Cap 7 (HVAC_MODE) → HVACMode mapping.
 # Source: fr.modulotech.app.domain.model.devices.features.service.Service
@@ -37,6 +39,13 @@ SYSTEM_MODE_MAP: dict[int, HVACMode] = {
     8: HVACMode.DRY,
 }
 SYSTEM_MODE_REVERSE: dict[HVACMode, int] = {v: k for k, v in SYSTEM_MODE_MAP.items()}
+
+# Cap 100801 (FAN_SPEED) — source: VentilationSpeedMode.java
+FAN_SPEED_MAP: dict[int, str] = {1: "low", 2: "medium", 3: "high", 4: "auto"}
+FAN_SPEED_REVERSE: dict[str, int] = {v: k for k, v in FAN_SPEED_MAP.items()}
+
+PRESET_NONE  = "none"
+PRESET_QUIET = "quiet"
 
 POLL_INTERVAL_SECONDS = 60
 # Polite delay between per-device capability fetches

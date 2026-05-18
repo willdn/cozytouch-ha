@@ -13,11 +13,13 @@ from .const import (
     CAP_COOLING_MAX,
     CAP_COOLING_MIN,
     CAP_COOLING_TARGET,
+    CAP_FAN_SPEED,
     CAP_HEATING_MAX,
     CAP_HEATING_MIN,
     CAP_HEATING_STATUS,
     CAP_HEATING_TARGET,
     CAP_HVAC_MODE,
+    CAP_QUIET_MODE,
     CAP_ROOM_NAME,
     DOMAIN,
     POLL_INTERVAL_SECONDS,
@@ -88,16 +90,18 @@ class CozytouchCoordinator(DataUpdateCoordinator):
                 raise UpdateFailed(f"Error fetching capabilities for {device_id}: {err}") from err
 
             result[device_id] = {
-                "name": caps.get(CAP_ROOM_NAME) or fallback_name,
-                "ambient_temp":    _float(caps.get(CAP_AMBIENT_TEMP)),
-                "heating_target":  _float(caps.get(CAP_HEATING_TARGET)),
-                "cooling_target":  _float(caps.get(CAP_COOLING_TARGET)),
-                "system_mode":     _int(caps.get(CAP_HVAC_MODE)),
-                "heating_status":  _int(caps.get(CAP_HEATING_STATUS)),
-                "heating_min":     _float(caps.get(CAP_HEATING_MIN)),
-                "heating_max":     _float(caps.get(CAP_HEATING_MAX)),
-                "cooling_min":     _float(caps.get(CAP_COOLING_MIN)),
-                "cooling_max":     _float(caps.get(CAP_COOLING_MAX)),
+                "name":           caps.get(CAP_ROOM_NAME) or fallback_name,
+                "ambient_temp":   _float(caps.get(CAP_AMBIENT_TEMP)),
+                "heating_target": _float(caps.get(CAP_HEATING_TARGET)),
+                "cooling_target": _float(caps.get(CAP_COOLING_TARGET)),
+                "system_mode":    _int(caps.get(CAP_HVAC_MODE)),
+                "heating_status": _int(caps.get(CAP_HEATING_STATUS)),
+                "heating_min":    _float(caps.get(CAP_HEATING_MIN)),
+                "heating_max":    _float(caps.get(CAP_HEATING_MAX)),
+                "cooling_min":    _float(caps.get(CAP_COOLING_MIN)),
+                "cooling_max":    _float(caps.get(CAP_COOLING_MAX)),
+                "fan_speed":      _int(caps.get(CAP_FAN_SPEED)),
+                "quiet_mode":     _int(caps.get(CAP_QUIET_MODE)),
             }
 
         return result
