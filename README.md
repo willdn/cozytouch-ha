@@ -134,17 +134,6 @@ The mode mapping is sourced from capability **7** (`SYSTEM_OPERATION_SERVICE_REQ
 
 ---
 
-## API Credentials
-
-The integration uses the official Cozytouch mobile app's API credentials, extracted from the app binary:
-
-- **Client ID:** `Ct_1JVyTmILX8IefA7aUNBjFnZUa`
-- **Client Secret:** `2EcNDz_dy342UJqo2Z7pSJNvUv0a`
-
-These are the same credentials used by the app and are baked into `const.py`. If Atlantic rotates them in a future app version, you will need to update `const.py` accordingly.
-
----
-
 ## File Reference
 
 | File | Purpose |
