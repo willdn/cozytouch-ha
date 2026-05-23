@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TypeAlias
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -7,7 +9,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import CozytouchAPI
 from .coordinator import CozytouchCoordinator
 
-type CozytouchConfigEntry = ConfigEntry[CozytouchCoordinator]
+CozytouchConfigEntry: TypeAlias = ConfigEntry[CozytouchCoordinator]
 
 PLATFORMS = ["climate"]
 
