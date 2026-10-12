@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
+import aiohttp
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import CozytouchAPI
 from .const import (
@@ -23,6 +26,7 @@ from .const import (
     CAP_ROOM_NAME,
     DOMAIN,
     POLL_INTERVAL_SECONDS,
+    POLL_REFRESH_CAPS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,6 +56,15 @@ def _int(value: Any) -> int | None:
         return None
 
 
+def _last_update(items: dict[int, dict]) -> datetime | None:
+    """Most recent modificationDate (epoch seconds) among the polled capabilities."""
+    stamps = [_float(items[cap].get("modificationDate")) for cap in POLL_REFRESH_CAPS if cap in items]
+    stamps = [s for s in stamps if s]
+    if not stamps:
+        return None
+    return dt_util.utc_from_timestamp(max(stamps))
+
+
 class CozytouchCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, api: CozytouchAPI) -> None:
         super().__init__(
@@ -78,30 +91,49 @@ class CozytouchCoordinator(DataUpdateCoordinator):
         if not self.devices:
             await self._async_setup()
 
+        # Fire all refreshes before reading, so the executions (1–4 s) have
+        # finished by the time each zone is read; a late one lands next poll.
+        for device in self.devices:
+            for cap in POLL_REFRESH_CAPS:
+                try:
+                    await self.api.refresh_capability(device["deviceId"], cap)
+                except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+                    _LOGGER.debug("Refresh of capability %s on %s failed: %s", cap, device["deviceId"], err)
+
         result: dict[int, dict] = {}
         for device in self.devices:
-            device_id: int = device.get("deviceId")
-            fallback_name = (
-                device.get("name") or device.get("customName") or device.get("longName") or str(device_id)
-            )
-            try:
-                caps = await self.api.get_capabilities(device_id)
-            except Exception as err:
-                raise UpdateFailed(f"Error fetching capabilities for {device_id}: {err}") from err
-
-            result[device_id] = {
-                "name":           caps.get(CAP_ROOM_NAME) or fallback_name,
-                "ambient_temp":   _float(caps.get(CAP_AMBIENT_TEMP)),
-                "heating_target": _float(caps.get(CAP_HEATING_TARGET)),
-                "cooling_target": _float(caps.get(CAP_COOLING_TARGET)),
-                "system_mode":    _int(caps.get(CAP_HVAC_MODE)),
-                "heating_status": _int(caps.get(CAP_HEATING_STATUS)),
-                "heating_min":    _float(caps.get(CAP_HEATING_MIN)),
-                "heating_max":    _float(caps.get(CAP_HEATING_MAX)),
-                "cooling_min":    _float(caps.get(CAP_COOLING_MIN)),
-                "cooling_max":    _float(caps.get(CAP_COOLING_MAX)),
-                "fan_speed":      _int(caps.get(CAP_FAN_SPEED)),
-                "quiet_mode":     _int(caps.get(CAP_QUIET_MODE)),
-            }
-
+            result[device["deviceId"]] = await self._async_fetch_zone(device)
         return result
+
+    async def async_refresh_zone(self, device_id: int) -> None:
+        """Re-read one zone and push it to the entities, without a full poll."""
+        device = next(d for d in self.devices if d["deviceId"] == device_id)
+        zone = await self._async_fetch_zone(device)
+        self.async_set_updated_data({**self.data, device_id: zone})
+
+    async def _async_fetch_zone(self, device: dict) -> dict:
+        device_id: int = device.get("deviceId")
+        fallback_name = (
+            device.get("name") or device.get("customName") or device.get("longName") or str(device_id)
+        )
+        try:
+            items = await self.api.get_capabilities(device_id)
+        except Exception as err:
+            raise UpdateFailed(f"Error fetching capabilities for {device_id}: {err}") from err
+        caps = {cap_id: item.get("value") for cap_id, item in items.items()}
+
+        return {
+            "name":           caps.get(CAP_ROOM_NAME) or fallback_name,
+            "ambient_temp":   _float(caps.get(CAP_AMBIENT_TEMP)),
+            "heating_target": _float(caps.get(CAP_HEATING_TARGET)),
+            "cooling_target": _float(caps.get(CAP_COOLING_TARGET)),
+            "system_mode":    _int(caps.get(CAP_HVAC_MODE)),
+            "heating_status": _int(caps.get(CAP_HEATING_STATUS)),
+            "heating_min":    _float(caps.get(CAP_HEATING_MIN)),
+            "heating_max":    _float(caps.get(CAP_HEATING_MAX)),
+            "cooling_min":    _float(caps.get(CAP_COOLING_MIN)),
+            "cooling_max":    _float(caps.get(CAP_COOLING_MAX)),
+            "fan_speed":      _int(caps.get(CAP_FAN_SPEED)),
+            "quiet_mode":     _int(caps.get(CAP_QUIET_MODE)),
+            "last_update":    _last_update(items),
+        }

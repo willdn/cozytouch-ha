@@ -79,8 +79,9 @@ Each room zone becomes a **Climate entity** with the following capabilities:
 | HVAC modes | `off`, `heat`, `cool`, `auto`, `fan_only`, `dry` |
 | HVAC action | `idle`, `heating`, `cooling`, or `off` (live status) |
 | Min/max temperature | Read from device capabilities (typically 7–30 °C) |
+| `last_update` attribute | When the cloud last heard from the unit (mode / room temperature) |
 
-State is polled from the cloud every **60 seconds**.
+State is polled from the cloud every **60 seconds**. The Cozytouch gateway doesn't reliably push state changes to the cloud, so each poll first asks it to re-report the mode and room temperature (`POST /executions/refreshcapability`). After a command, the integration waits until the cloud reports it done, re-reads that value and updates the entity — a mode change shows up within ~10 s.
 
 The mode mapping is sourced from capability **7** (`SYSTEM_OPERATION_SERVICE_REQUESTED_CAPABILITY`) — confirmed by reverse-engineering `Service.java` in the v3.27.0 app:
 
@@ -125,6 +126,12 @@ The mode mapping is sourced from capability **7** (`SYSTEM_OPERATION_SERVICE_REQ
 
 - The access token expires every 5 minutes. The integration refreshes it automatically. If you see persistent unavailability, check the logs for `Token refresh failed` — this triggers a re-auth prompt in the HA UI.
 - Check that your Cozytouch gateway is online in the mobile app.
+
+### The AC changes but the entity (and the official app) don't
+
+- The gateway has stopped pushing state to the Atlantic cloud. The integration works around it by asking for fresh values, but the official app doesn't.
+- Check the entity's `last_update` attribute: if it isn't moving, even explicit refreshes fail. Power-cycle the Cozytouch bridge and the AC.
+- Inspect it from the CLI: `python cozytouch.py caps <deviceId>` shows when each value last changed, and `python cozytouch.py gateway` shows `isSynchronized`.
 
 ### Temperature or mode changes don't apply
 

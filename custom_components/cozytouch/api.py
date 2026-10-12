@@ -12,6 +12,10 @@ from .const import (
     BASE_URL,
     CLIENT_ID,
     CLIENT_SECRET,
+    EXECUTION_DONE,
+    EXECUTION_ERROR,
+    EXECUTION_POLL_SECONDS,
+    EXECUTION_TIMEOUT_SECONDS,
     MAGELLAN_PATH,
     REQUEST_DELAY_SECONDS,
     TOKEN_PATH,
@@ -124,17 +128,38 @@ class CozytouchAPI:
             return data
         return [data]
 
-    async def get_capabilities(self, device_id: int) -> dict[int, Any]:
+    async def get_capabilities(self, device_id: int) -> dict[int, dict]:
+        """capabilityId → {capabilityId, value, modificationDate (epoch seconds)}"""
         data = await self._get(f"/capabilities/?deviceId={device_id}")
         if not isinstance(data, list):
             data = data.get("capabilities") or data.get("data") or []
-        return {int(item["capabilityId"]): item["value"] for item in data}
+        return {int(item["capabilityId"]): item for item in data}
 
     async def write_capability(
         self, device_id: int, capability_id: int, value: Any
-    ) -> dict:
+    ) -> int:
+        """Returns the execution id."""
         return await self._post("/executions/writecapability", {
             "value": str(value),
             "deviceId": device_id,
             "capabilityId": capability_id,
         })
+
+    async def refresh_capability(self, device_id: int, capability_id: int) -> int:
+        """Ask the gateway to re-report a capability. Returns the execution id."""
+        return await self._post("/executions/refreshcapability", {
+            "deviceId": device_id,
+            "capabilityId": capability_id,
+        })
+
+    async def wait_execution(self, execution_id: int) -> int | None:
+        """Poll an execution until done/error; returns the last state seen."""
+        deadline = time.monotonic() + EXECUTION_TIMEOUT_SECONDS
+        state = None
+        while time.monotonic() < deadline:
+            execution = await self._get(f"/executions/{execution_id}")
+            state = execution.get("state")
+            if state in (EXECUTION_DONE, EXECUTION_ERROR):
+                return state
+            await asyncio.sleep(EXECUTION_POLL_SECONDS)
+        return state

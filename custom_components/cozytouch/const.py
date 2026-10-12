@@ -48,6 +48,15 @@ PRESET_NONE  = "none"
 PRESET_QUIET = "quiet"
 
 POLL_INTERVAL_SECONDS = 60
+# The gateway doesn't reliably push state changes to the cloud, so every poll
+# asks it to re-report these (POST /executions/refreshcapability)
+POLL_REFRESH_CAPS = (CAP_HVAC_MODE, CAP_AMBIENT_TEMP)
+
+# GET /executions/{id} states — source: fr.modulotech.app.domain.model.ExecutionState
+EXECUTION_DONE  = 3
+EXECUTION_ERROR = 4
+EXECUTION_POLL_SECONDS    = 1.0
+EXECUTION_TIMEOUT_SECONDS = 30
 # Polite delay between per-device capability fetches
 REQUEST_DELAY_SECONDS = 1.0
 # Refresh token this many seconds before expiry
