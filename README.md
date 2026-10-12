@@ -81,7 +81,7 @@ Each room zone becomes a **Climate entity** with the following capabilities:
 | Min/max temperature | Read from device capabilities (typically 7–30 °C) |
 | `last_update` attribute | When the cloud last heard from the unit (mode / room temperature) |
 
-State is polled from the cloud every **60 seconds**. The Cozytouch gateway doesn't reliably push state changes to the cloud, so each poll first asks it to re-report the mode and room temperature (`POST /executions/refreshcapability`). After a command, the integration waits until the cloud reports it done, re-reads that value and updates the entity — a mode change shows up within ~10 s.
+State is polled from the cloud every **60 seconds**. The Cozytouch gateway doesn't reliably push state changes to the cloud, so when a zone's mode and room temperature haven't been reported for 10 minutes, the integration asks the gateway to re-report them (`POST /executions/refreshcapability`). This is deliberately rare: a burst of ~30 refreshes in 10 minutes jammed the gateway for over an hour. After a command, the integration waits until the cloud reports it done, re-reads that value and updates the entity — a mode change shows up within ~10 s.
 
 The mode mapping is sourced from capability **7** (`SYSTEM_OPERATION_SERVICE_REQUESTED_CAPABILITY`) — confirmed by reverse-engineering `Service.java` in the v3.27.0 app:
 

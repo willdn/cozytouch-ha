@@ -48,9 +48,12 @@ PRESET_NONE  = "none"
 PRESET_QUIET = "quiet"
 
 POLL_INTERVAL_SECONDS = 60
-# The gateway doesn't reliably push state changes to the cloud, so every poll
-# asks it to re-report these (POST /executions/refreshcapability)
+# The gateway doesn't reliably push state changes to the cloud. When a zone hasn't
+# reported these for REFRESH_STALE_SECONDS, ask it to re-report them
+# (POST /executions/refreshcapability). Keep this rare: ~30 refreshes in 10 min
+# jammed the gateway for over an hour.
 POLL_REFRESH_CAPS = (CAP_HVAC_MODE, CAP_AMBIENT_TEMP)
+REFRESH_STALE_SECONDS = 600
 
 # GET /executions/{id} states — source: fr.modulotech.app.domain.model.ExecutionState
 EXECUTION_DONE  = 3

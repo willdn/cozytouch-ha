@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -27,6 +28,7 @@ from .const import (
     DOMAIN,
     POLL_INTERVAL_SECONDS,
     POLL_REFRESH_CAPS,
+    REFRESH_STALE_SECONDS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -75,6 +77,7 @@ class CozytouchCoordinator(DataUpdateCoordinator):
         )
         self.api = api
         self.devices: list[dict] = []
+        self._refreshed_at: dict[int, float] = {}
 
     async def _async_setup(self) -> None:
         """Fetch and cache the ROOM device list once at startup."""
@@ -91,19 +94,31 @@ class CozytouchCoordinator(DataUpdateCoordinator):
         if not self.devices:
             await self._async_setup()
 
-        # Fire all refreshes before reading, so the executions (1–4 s) have
-        # finished by the time each zone is read; a late one lands next poll.
-        for device in self.devices:
-            for cap in POLL_REFRESH_CAPS:
-                try:
-                    await self.api.refresh_capability(device["deviceId"], cap)
-                except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-                    _LOGGER.debug("Refresh of capability %s on %s failed: %s", cap, device["deviceId"], err)
-
         result: dict[int, dict] = {}
         for device in self.devices:
             result[device["deviceId"]] = await self._async_fetch_zone(device)
+        await self._async_refresh_stale(result)
         return result
+
+    async def _async_refresh_stale(self, zones: dict[int, dict]) -> None:
+        """Ask the gateway to re-report zones it hasn't reported for a while.
+
+        The new values land on the next poll. A zone is refreshed at most once
+        per REFRESH_STALE_SECONDS, even if the refresh never completes.
+        """
+        now = time.monotonic()
+        for device_id, zone in zones.items():
+            last_update = zone["last_update"]
+            if last_update and (dt_util.utcnow() - last_update).total_seconds() < REFRESH_STALE_SECONDS:
+                continue
+            if now - self._refreshed_at.get(device_id, -REFRESH_STALE_SECONDS) < REFRESH_STALE_SECONDS:
+                continue
+            self._refreshed_at[device_id] = now
+            for cap in POLL_REFRESH_CAPS:
+                try:
+                    await self.api.refresh_capability(device_id, cap)
+                except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+                    _LOGGER.debug("Refresh of capability %s on %s failed: %s", cap, device_id, err)
 
     async def async_refresh_zone(self, device_id: int) -> None:
         """Re-read one zone and push it to the entities, without a full poll."""
