@@ -32,7 +32,7 @@ CAP_QUIET_MODE           = 100802  # VENTILATION_QUIET_MODE
 # Source: fr.modulotech.app.domain.model.devices.features.service.Service
 SYSTEM_MODE_MAP: dict[int, HVACMode] = {
     0: HVACMode.OFF,
-    2: HVACMode.AUTO,
+    1: HVACMode.AUTO,
     3: HVACMode.COOL,
     4: HVACMode.HEAT,
     7: HVACMode.FAN_ONLY,

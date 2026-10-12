@@ -87,7 +87,7 @@ The mode mapping is sourced from capability **7** (`SYSTEM_OPERATION_SERVICE_REQ
 | API value (cap 7) | HA mode |
 |---|---|
 | `0` | `off` |
-| `2` | `auto` |
+| `1` | `auto` |
 | `3` | `cool` |
 | `4` | `heat` |
 | `7` | `fan_only` (ventilation) |
